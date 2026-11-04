@@ -1,0 +1,66 @@
+name: "${authentik_auth_provider_name}"
+command: "authentik-auth-provider/bin/obot-provider"
+icon: "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/authentik.svg"
+description: "${authentik_auth_provider_description}"
+link: "https://goauthentik.io/"
+requiredConfigurationParameters:
+  - name: "OBOT_AUTHENTIK_AUTH_PROVIDER_ISSUER_URL"
+    friendlyName: "${authentik_auth_provider_issuer_url_friendly_name}"
+    description: "${authentik_auth_provider_issuer_url_description}"
+    sensitive: false
+  - name: "OBOT_AUTHENTIK_AUTH_PROVIDER_CLIENT_ID"
+    friendlyName: "${authentik_auth_provider_client_id_friendly_name}"
+    description: "${authentik_auth_provider_client_id_description}"
+    sensitive: false
+  - name: "OBOT_AUTHENTIK_AUTH_PROVIDER_CLIENT_SECRET"
+    friendlyName: "${authentik_auth_provider_client_secret_friendly_name}"
+    description: "${authentik_auth_provider_client_secret_description}"
+    sensitive: true
+  - name: "OBOT_AUTHENTIK_AUTH_PROVIDER_API_TOKEN"
+    friendlyName: "${authentik_auth_provider_api_token_friendly_name}"
+    description: "${authentik_auth_provider_api_token_description}"
+    sensitive: true
+  - name: "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
+    friendlyName: "${authentik_auth_provider_cookie_secret_friendly_name}"
+    description: "${authentik_auth_provider_cookie_secret_description}"
+    sensitive: true
+    hidden: true
+  - name: "OBOT_AUTH_PROVIDER_EMAIL_DOMAINS"
+    friendlyName: "${authentik_auth_provider_email_domains_friendly_name}"
+    description: "${authentik_auth_provider_email_domains_description}"
+    sensitive: false
+optionalConfigurationParameters:
+  - name: "OBOT_AUTH_PROVIDER_ENABLE_LOGGING"
+    friendlyName: "${authentik_auth_provider_enable_logging_friendly_name}"
+    description: "${authentik_auth_provider_enable_logging_description}"
+    sensitive: false
+  - name: "OBOT_AUTHENTIK_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL"
+    friendlyName: "${authentik_auth_provider_insecure_allow_unverified_email_friendly_name}"
+    description: "${authentik_auth_provider_insecure_allow_unverified_email_description}"
+    sensitive: false
+  - name: "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+    friendlyName: "${authentik_auth_provider_postgres_connection_dsn_friendly_name}"
+    description: "${authentik_auth_provider_postgres_connection_dsn_description}"
+    sensitive: true
+    hidden: true
+  - name: "OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS"
+    friendlyName: "${authentik_auth_provider_postgres_max_connections_friendly_name}"
+    description: "${authentik_auth_provider_postgres_max_connections_description}"
+    sensitive: false
+    hidden: true
+  - name: "OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS"
+    friendlyName: "${authentik_auth_provider_postgres_max_idle_connections_friendly_name}"
+    description: "${authentik_auth_provider_postgres_max_idle_connections_description}"
+    sensitive: false
+    hidden: true
+  - name: "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS"
+    friendlyName: "${authentik_auth_provider_postgres_connection_lifetime_seconds_friendly_name}"
+    description: "${authentik_auth_provider_postgres_connection_lifetime_seconds_description}"
+    sensitive: false
+    hidden: true
+  - name: "OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION"
+    friendlyName: "${authentik_auth_provider_token_refresh_duration_friendly_name}"
+    description: "${authentik_auth_provider_token_refresh_duration_description}"
+    sensitive: false
+postgresTablePrefix: "authentik_"
+groupIDPrefix: "authentik/"

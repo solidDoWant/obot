@@ -21,6 +21,7 @@ ui-user-node:
 clean:
 	rm -rf ui/admin/build
 	rm -rf ui/user/build
+	rm -rf providers/*/bin
 
 serve-docs:
 	cd docs && \
@@ -44,6 +45,11 @@ check-go-security-deps:
 		echo "Deprecated OpenPGP dependency invalidates the GO-2026-5932 Trivy exception." >&2; \
 		exit 1; \
 	fi
+
+# Provider modules in providers/ are separate Go modules, built to <provider>/bin/obot-provider.
+PROVIDER_MODULES := $(patsubst %/go.mod,%,$(wildcard providers/*/go.mod))
+build-providers:
+	./providers/scripts/build.sh
 
 dev:
 	./tools/dev.sh $(ARGS)
@@ -76,6 +82,7 @@ lint: lint-go lint-i18n
 tidy:
 	go mod tidy
 	cd tools/i18n-lint && go mod tidy
+	for module in $(PROVIDER_MODULES); do (cd $$module && go mod tidy) || exit 1; done
 
 GOLANGCI_LINT_VERSION ?= v2.14.0
 setup-env:
@@ -90,6 +97,7 @@ lint-i18n:
 
 lint-go: setup-env
 	golangci-lint run
+	for module in $(PROVIDER_MODULES); do (cd $$module && golangci-lint run --config $(CURDIR)/.golangci.yaml ./...) || exit 1; done
 
 generate:
 	go generate
@@ -99,6 +107,7 @@ test:
 	cd apiclient && go test -v -cover ./... && cd ..
 	cd logger && go test -v -cover ./... && cd ..
 	cd tools/i18n-lint && go test -v -cover ./...
+	for module in $(PROVIDER_MODULES); do (cd $$module && go test -v -cover ./...) || exit 1; done
 
 # Integration tests start an isolated obot server and require Docker plus npm
 # and GHCR registry access.

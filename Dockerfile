@@ -20,6 +20,9 @@ ARG MODEL_DATA_URL=
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/go/pkg/mod \
   MODEL_DATA_URL="${MODEL_DATA_URL}" go run ./tools/fetch-model-data
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/root/go/pkg/mod \
+  make build-providers
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/go/pkg/mod \
@@ -73,6 +76,10 @@ COPY --chmod=0755 run.sh /bin/run.sh
 COPY --link --from=providers /obot-providers /obot-providers
 COPY --link --from=enterprise-providers /obot-providers /obot-providers
 COPY --link --from=encryption-bins /obot-providers /obot-providers
+# The providers that ship in this repository, such as authentik's.
+COPY --link --from=bin /app/providers/auth-providers /obot-providers/obot-providers/auth-providers
+COPY --link --from=bin /app/providers/authentik-auth-provider/bin/obot-provider /obot-providers/obot-providers/authentik-auth-provider/bin/obot-provider
+RUN echo 'export OBOT_SERVER_PROVIDER_REGISTRIES="/obot-providers/obot-providers"' > /obot-providers/.envrc.providers.obot
 COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
 COPY --from=encryption-bins /bin/*-encryption-provider /bin/

@@ -30,12 +30,13 @@ const (
 // profileRefreshFixture is one user signed in through a fake auth provider whose profile, status, and fetch count
 // each test controls, so that every case starts from its own known state.
 type profileRefreshFixture struct {
-	c       *Client
-	user    *types.User
-	url     string
-	ctx     context.Context
-	fetches atomic.Int32
-	status  atomic.Int32
+	c        *Client
+	user     *types.User
+	provider string
+	url      string
+	ctx      context.Context
+	fetches  atomic.Int32
+	status   atomic.Int32
 
 	mu      sync.Mutex
 	profile map[string]string
@@ -43,15 +44,21 @@ type profileRefreshFixture struct {
 
 func newProfileRefreshFixture(t *testing.T) *profileRefreshFixture {
 	t.Helper()
+	return newProfileRefreshFixtureFor(t, refreshTestProvider)
+}
+
+func newProfileRefreshFixtureFor(t *testing.T, provider string) *profileRefreshFixture {
+	t.Helper()
 	f := &profileRefreshFixture{
-		c: newLifecycleTestClient(t),
+		c:        newLifecycleTestClient(t),
+		provider: provider,
 		profile: map[string]string{
 			"id":       "f:storage:opaque-id",
 			"name":     "First Name",
 			"icon_url": "https://id.example/first.png",
 		},
 	}
-	f.user = createLifecycleTestUser(t, f.c, "refresh-user", AuthProviderRef{Namespace: system.DefaultNamespace, Name: refreshTestProvider})
+	f.user = createLifecycleTestUser(t, f.c, "refresh-user", AuthProviderRef{Namespace: system.DefaultNamespace, Name: provider})
 	f.status.Store(http.StatusOK)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// The handler runs on the server's goroutine, where require cannot stop the test.
@@ -90,7 +97,7 @@ func (f *profileRefreshFixture) refresh(t *testing.T) *types.User {
 	t.Helper()
 	user, err := f.c.UserByID(f.ctx, fmtUserID(f.user.ID))
 	require.NoError(t, err)
-	require.NoError(t, f.c.UpdateProfileIfNeeded(f.ctx, user, refreshTestProvider, system.DefaultNamespace, f.url))
+	require.NoError(t, f.c.UpdateProfileIfNeeded(f.ctx, user, f.provider, system.DefaultNamespace, f.url))
 	stored, err := f.c.UserByID(f.ctx, fmtUserID(f.user.ID))
 	require.NoError(t, err)
 	return stored
@@ -104,6 +111,22 @@ func (f *profileRefreshFixture) setLastChecked(t *testing.T, at time.Time) {
 func (f *profileRefreshFixture) expectFetches(t *testing.T, want int32) {
 	t.Helper()
 	assert.Equal(t, want, f.fetches.Load(), "profile fetches")
+}
+
+// TestProfileRefreshReadsProviderProfiles checks that every provider serving the shared profile shape, with id,
+// name, and icon_url, has its display name, avatar, and group lookup ID stored.
+func TestProfileRefreshReadsProviderProfiles(t *testing.T) {
+	for _, provider := range []string{"entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider", "authentik-auth-provider"} {
+		t.Run(provider, func(t *testing.T) {
+			f := newProfileRefreshFixtureFor(t, provider)
+			stored := f.refresh(t)
+			assert.Equal(t, "First Name", stored.DisplayName)
+			assert.Equal(t, "https://id.example/first.png", stored.IconURL)
+			var identity types.Identity
+			require.NoError(t, f.c.db.WithContext(f.ctx).Where("user_id = ?", f.user.ID).Take(&identity).Error)
+			assert.Equal(t, "f:storage:opaque-id", identity.ProviderGroupLookupID)
+		})
+	}
 }
 
 // TestProfileRefreshSchedule pins down when a sign-in refreshes a user's display name and avatar from the auth

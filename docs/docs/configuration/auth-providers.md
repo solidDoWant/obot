@@ -83,7 +83,7 @@ Local is now the active provider. To use Local accounts, you're done; see [Local
 To use a different provider, switch to it:
 
 1. Go to **Identity & Access > Auth Providers**.
-2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
+2. Click **Configure** on the provider. Local, GitHub, Google, and authentik are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
 3. Configure the provider, sign in with it to verify your account, and complete the switch. See [Switching Between Auth Providers](#switching-between-auth-providers) for each step.
 
 :::important
@@ -172,7 +172,7 @@ You can:
 
 | Providers | Availability |
 |-----------|--------------|
-| Local, GitHub, Google | Available in every edition, without registration |
+| Local, GitHub, Google, authentik | Available in every edition, without registration |
 | Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0 | Require free Obot Community registration or an Enterprise license |
 
 To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
@@ -416,6 +416,73 @@ For optional avatars, map a `picture` user attribute to the OIDC `picture` claim
 Set **Token Refresh Duration** shorter than the realm's **Access Token Lifespan**, under **Realm settings > Tokens**. Keycloak's default lifespan is 5 minutes, so a value such as `4m` works. If tokens expire before Obot refreshes them, updates to users' display names and avatars fail until the next refresh.
 
 Keep **Revoke Refresh Token** off in the realm, so that parallel refreshes from the same browser succeed.
+
+### authentik {#authentik}
+
+Use authentik 2025.12 or later. You create an application with an OAuth2/OpenID provider, which lets users sign in to Obot, and an API token, which lets Obot read users and groups for access control.
+
+#### Setup {#authentik-setup}
+
+**Create the application and provider**
+
+1. In authentik, go to **Applications > Applications** and click **Create with provider**.
+2. Choose **OAuth2/OpenID Provider**.
+3. Set **Client type** to **Confidential**.
+4. Add a **Strict** redirect URI with the callback URL shown in Obot.
+5. Make sure the **Authorization Code** and **Refresh Token** grant types are enabled. authentik rejects every sign-in through a provider with no grant types, which is how providers created through its API or blueprints start.
+6. Under **Advanced protocol settings**:
+   - In **Scopes**, keep `openid`, `email`, and `profile`, and add `offline_access`.
+   - Set **Subject mode** to **Based on the User's UUID**. Obot uses the subject to find the user's groups, and the default hashed ID can't be looked up.
+   - Keep **Issuer mode** at **Each provider has a different issuer**.
+7. Note the **Client ID** and **Client Secret**. The provider's **OpenID Configuration Issuer**, shown on its overview page, is the Issuer URL.
+
+**Create the API token**
+
+1. Go to **Directory > Users** and click **New Service Account**. authentik shows a token for the account. You can ignore it, because it's an app password, which can't call the API.
+2. Go to **Directory > Roles** and create a role. Under **Assigned global permissions**, add **Can view User** and **Can view Group**. These are the only permissions it needs. Global permissions are required: with per-object permissions, Obot would see only some users and groups.
+3. Assign the role to the service account.
+4. Go to **Directory > Tokens and App passwords** and create a token for the service account with the intent **API**. If it expires, replace it in Obot before it does, or group lookups fail when users sign in.
+
+**Set up email verification**
+
+By default, users must have a verified email address to sign in to Obot. authentik's default `email` scope mapping always sends `email_verified: false`, so with it nobody can sign in until you do one of the following:
+
+- Create a scope mapping (**Customization > Property Mappings**, **Scope Mapping**) with the scope name `email` and an expression that returns `email_verified: True` only for addresses you trust. For example, if your administrators set every user's email:
+
+  ```python
+  return {
+      "email": request.user.email,
+      "email_verified": True,
+  }
+  ```
+
+  In the provider's **Scopes**, replace the default `email` mapping with yours.
+- Enable **Allow Unverified Emails** in Obot.
+
+:::important
+Users who can change their own email address in authentik can claim any address. If your user settings flow lets them, don't send `email_verified: True` for those addresses, and remember that email-domain restrictions depend on users having trustworthy email addresses.
+:::
+
+In **Identity & Access > Auth Providers**, configure **authentik**:
+
+| Obot field | authentik value |
+| --- | --- |
+| Issuer URL | The provider's OpenID Configuration Issuer, such as `https://auth.example.com/application/o/obot/` |
+| Client ID / Client Secret | The provider's client credentials |
+| API Token | The service account's API token |
+| Allowed E-Mail Domains | Allowed domains, or `*` for all domains |
+
+Obot reads authentik's API at the issuer's origin, under `/api/v3/`, so Obot must be able to reach it there.
+
+Groups in Obot have authentik's group names. A user is a member of their groups and of every parent of those groups. Users deactivated in authentik are blocked from signing in. Avatars come from the `picture` claim. Only HTTPS URLs are used, so authentik's generated avatars aren't shown.
+
+Changes to the Issuer URL of the active provider take effect immediately. If authentik can't be reached or rejects the new value, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
+
+#### Sessions {#authentik-sessions}
+
+**Token Refresh Duration** controls how often Obot refreshes authentication tokens for active sessions. The default is 1 hour.
+
+Set **Token Refresh Duration** shorter than the provider's **Access token validity**. authentik's default validity is 1 hour, so a value such as `50m` works. If tokens expire before Obot refreshes them, updates to users' display names and avatars fail until the next refresh. Without the `offline_access` scope, authentik issues no refresh token, and users must sign in again when their token expires.
 
 ### Auth0
 
